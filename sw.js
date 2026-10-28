@@ -1,5 +1,5 @@
 // Service worker de NutriScan: hace que la app abra y funcione sin conexión.
-const CACHE = 'nutriscan-v6';
+const CACHE = 'nutriscan-v11';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const ZXING = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
 
@@ -25,6 +25,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // Open Food Facts y Gemini: siempre por red (los datos ya se guardan en el iPhone)
   if (url.hostname.includes('openfoodfacts') || url.hostname.includes('googleapis')) return;
+  // Lista de acceso: siempre la versión más reciente (nunca desde caché)
+  if (url.origin === location.origin && url.pathname.endsWith('/accesos.txt')) return;
 
   if (req.url === ZXING) { // librería del escáner: primero caché
     e.respondWith(caches.match(req).then(r => r || fetch(req).then(res => {
