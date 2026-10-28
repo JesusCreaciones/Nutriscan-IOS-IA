@@ -670,6 +670,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
   <section>
     <p class="label">Ayuda a mejorar la app</p>
     <button class="card hint" id="fbOpen"><span class="fico ia" aria-hidden="true">💬</span><div class="t"><b>Enviar una opinión</b><span>Qué falta, qué cambiarías o qué falla.</span></div><svg class="i"><use href="#i-right"/></svg></button>
+    <p class="note" id="usageNote" hidden>Para saber cuánta gente usa NutriScan, la app envía una vez al día un aviso anónimo: un número aleatorio de este móvil, la versión y si es iPhone o Android. Nunca lo que comes, tu peso, tus medidas ni tus fotos.</p>
     <button class="card hint" id="wnOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">📣</span><div class="t"><b>Novedades</b><span>Lo que ha cambiado en cada versión.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <button class="card hint" id="wzOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">👋</span><div class="t"><b>Repetir la configuración guiada</b><span>Datos, día a día, deportes y objetivo paso a paso.</span></div><svg class="i"><use href="#i-right"/></svg></button>
   </section>
@@ -3186,13 +3187,20 @@ function wizStep(n) {
    Si está vacío, la opinión se comparte por WhatsApp/correo con el menú del móvil.
    ===================================================================== */
 const FEEDBACK = { form: '', sheet: '', fields: { stars: '', type: '', text: '', name: '' } };
+$('#usageNote').hidden = !FEEDBACK.form;
 /* Uso: una vez al día (si hay formulario) se envía «quién la abre» con la versión, para que el creador vea quién la usa.
    Solo se manda el nombre de la invitación, la versión y el tipo de móvil: nada de lo que comes ni tu peso. */
 function pingUsage() {
   if (!FEEDBACK.form || ls.get('ns.pingDay') === dateKey()) return;
   const acc = ls.get('ns.access') || {}, dev = isIOS() ? 'iPhone' : /android/i.test(navigator.userAgent) ? 'Android' : 'Otro';
+  // identificador anónimo y aleatorio de este móvil: sirve para contar personas distintas, no dice quién eres
+  let id = ls.get('ns.devId'); if (!id) { id = [...crypto.getRandomValues(new Uint8Array(4))].map(x => x.toString(16).padStart(2, '0')).join(''); ls.set('ns.devId', id); }
+  if (!ls.get('ns.firstSeen')) ls.set('ns.firstSeen', dateKey());
+  const since = daysBetween(ls.get('ns.firstSeen'), dateKey()) + 1;
   ls.set('ns.pingDay', dateKey());
-  ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), { stars: '', type: '📊 Uso diario', text: `v${APP_VERSION} · ${dev}${isStandalone() ? ' · app instalada' : ' · navegador'}`, name: acc.name || 'Anónimo', at: new Date().toISOString() }]);
+  ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), { stars: '', type: '📊 Uso diario',
+    text: `ID ${id} · v${APP_VERSION} · ${dev}${isStandalone() ? ' · app instalada' : ' · navegador'} · ${profileReady(getProfile()) ? 'perfil hecho' : 'sin perfil'} · día ${since} usándola`,
+    name: acc.name || 'Anónimo', at: new Date().toISOString() }]);
   sendQueuedFeedback();
 }
 const FB_TYPES = [{ id: 'falta', label: '💡 Falta algo' }, { id: 'cambiar', label: '🔧 Cambiaría algo' }, { id: 'error', label: '🐞 Algo falla' }, { id: 'gusta', label: '❤️ Me gusta' }];
