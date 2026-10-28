@@ -1,5 +1,5 @@
 // Service worker de NutriScan: hace que la app abra y funcione sin conexión.
-const CACHE = 'nutriscan-v12';
+const CACHE = 'nutriscan-v13';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 const ZXING = 'https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js';
 

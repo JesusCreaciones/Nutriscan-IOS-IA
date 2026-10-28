@@ -657,14 +657,14 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
   </section>
 
   <section id="adminSec" hidden>
-    <p class="label">🔑 Invitaciones (solo tú)</p>
+    <p class="label" id="adminLbl">🔑 Invitaciones (solo tú)</p>
     <div class="card pad" style="display:flex;flex-direction:column;gap:12px">
-      <div style="display:flex;gap:8px"><label class="search" style="flex:1;min-width:0;box-shadow:none;background:var(--fill)"><input id="invName" type="text" placeholder="Nombre de tu amigo" autocomplete="off"></label><button class="btn sm" id="invGen">Generar</button></div>
-      <div id="invOut" style="display:flex;flex-direction:column;gap:10px"></div>
-      <div><p class="label" style="margin-top:4px">Con acceso ahora</p><div id="invList" class="muted" style="font-size:15px">Cargando…</div></div>
+      <div style="display:flex;gap:8px" class="invOnly"><label class="search" style="flex:1;min-width:0;box-shadow:none;background:var(--fill)"><input id="invName" type="text" placeholder="Nombre de tu amigo" autocomplete="off"></label><button class="btn sm" id="invGen">Generar</button></div>
+      <div id="invOut" class="invOnly" style="display:flex;flex-direction:column;gap:10px"></div>
+      <div class="invOnly"><p class="label" style="margin-top:4px">Con acceso ahora</p><div id="invList" class="muted" style="font-size:15px">Cargando…</div></div>
       <button class="btn soft" id="fbSheet">📊 Ver opiniones y quién la usa</button>
     </div>
-    <p class="note">Para quitarle el acceso a alguien: en GitHub abre <b>accesos.txt</b>, toca ✏️, borra su línea y pulsa <b>Commit changes</b>. Lo perderá la próxima vez que abra la app con conexión.</p>
+    <p class="note invOnly">Para quitarle el acceso a alguien: en GitHub abre <b>accesos.txt</b>, toca ✏️, borra su línea y pulsa <b>Commit changes</b>. Lo perderá la próxima vez que abra la app con conexión.</p>
   </section>
 
   <section>
@@ -2937,6 +2937,9 @@ $('#wipeYes').onclick = async () => {
    El código nunca aparece en claro: se guarda su SHA-256 con el prefijo "nutriscan:".
    Sin conexión se permite entrar hasta 14 días desde la última comprobación.
    ===================================================================== */
+/* ACCESS_OPEN = true → app pública: cualquiera entra con el enlace, sin código.
+   Ponlo a false para volver a la beta cerrada con invitaciones (accesos.txt). */
+const ACCESS_OPEN = true;
 const ACCESS_FILE = 'accesos.txt', ACCESS_GRACE = 14 * DAY_MS, ACCESS_RECHECK = 6 * 3600 * 1000;
 const CODE_ALPHA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const normCode = c => String(c || '').toUpperCase().replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '');
@@ -2956,6 +2959,7 @@ async function loadAccessList() {
 }
 let accessChecked = 0, onUnlock = null;
 async function checkAccess() {
+  if (ACCESS_OPEN) { accessChecked = Date.now(); return true; }
   const st = ls.get('ns.access'), res = await loadAccessList();
   accessChecked = Date.now();
   if (!res) { // sin conexión o error de red
@@ -3000,6 +3004,9 @@ function randomCode(name) {
 async function renderAdmin() {
   const st = ls.get('ns.access'), sec = $('#adminSec');
   sec.hidden = !(st && st.admin); if (sec.hidden) return;
+  $$('#adminSec .invOnly').forEach(el => el.hidden = ACCESS_OPEN);
+  $('#adminLbl').textContent = ACCESS_OPEN ? '🔑 Solo tú' : '🔑 Invitaciones (solo tú)';
+  if (ACCESS_OPEN) return;
   const res = await loadAccessList();
   $('#invList').innerHTML = !res ? 'Sin conexión: no puedo leer la lista.' : res.list.length
     ? res.list.map(x => `<div style="display:flex;gap:8px;padding:4px 0">${x.admin ? '🔑' : '👤'} <span style="color:var(--fg)">${esc(cleanName(x.n) || 'Sin nombre')}</span></div>`).join('') : 'Nadie todavía.';
@@ -3024,8 +3031,10 @@ $('#invGen').onclick = async () => {
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.8';
+const APP_VERSION = '3.9';
 const CHANGELOG = [
+  { v: '3.9', date: '28 oct 2026', items: [
+    ['🌍', 'NutriScan es pública', 'Ya no hace falta código: cualquiera puede entrar con el enlace. Compártela con quien quieras.']] },
   { v: '3.8', date: '28 oct 2026', items: [
     ['🎙️', 'Dicta o escribe lo que comiste', '«Dos huevos con una tostada y un café»: la IA lo separa en alimentos y calcula todo.'],
     ['🍽️', 'Comí fuera', 'Menú del día, bocadillo, hamburguesa, pizza, tapas, sushi… con tamaño pequeño, normal o grande.'],
@@ -3183,7 +3192,7 @@ function pingUsage() {
   if (!FEEDBACK.form || ls.get('ns.pingDay') === dateKey()) return;
   const acc = ls.get('ns.access') || {}, dev = isIOS() ? 'iPhone' : /android/i.test(navigator.userAgent) ? 'Android' : 'Otro';
   ls.set('ns.pingDay', dateKey());
-  ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), { stars: '', type: '📊 Uso diario', text: `v${APP_VERSION} · ${dev}${isStandalone() ? ' · app instalada' : ' · navegador'}`, name: acc.name || 'Sin código', at: new Date().toISOString() }]);
+  ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), { stars: '', type: '📊 Uso diario', text: `v${APP_VERSION} · ${dev}${isStandalone() ? ' · app instalada' : ' · navegador'}`, name: acc.name || 'Anónimo', at: new Date().toISOString() }]);
   sendQueuedFeedback();
 }
 const FB_TYPES = [{ id: 'falta', label: '💡 Falta algo' }, { id: 'cambiar', label: '🔧 Cambiaría algo' }, { id: 'error', label: '🐞 Algo falla' }, { id: 'gusta', label: '❤️ Me gusta' }];
