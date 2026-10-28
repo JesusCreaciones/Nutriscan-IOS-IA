@@ -608,7 +608,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
   <section>
     <button class="btn line" id="wipeBtn">Borrar todos los datos</button>
     <div id="wipeBox" hidden style="display:flex;gap:10px"><button class="btn soft" id="wipeNo">Cancelar</button><button class="btn" id="wipeYes" style="background:var(--bad);color:#fff">Borrar</button></div>
-    <p class="note" style="text-align:center">NutriScan 3.1</p>
+    <p class="note" style="text-align:center">NutriScan 3.2</p>
   </section>
 </main>
 
@@ -1317,26 +1317,31 @@ async function openGrams(food) {
 
 /* ---- alimento manual ---- */
 function openCreate(pre = {}) {
+  const val = v => v == null || isNaN(v) ? '' : String(v).replace('.', ',');
   openSheet('Nuevo alimento', `
+    ${pre.fromLabel ? `<div class="card hint" style="background:var(--good-soft)"><span style="font-size:22px">📷</span><div class="t"><b>Datos leídos de la etiqueta</b><span>Revisa que coinciden y pulsa Guardar.</span></div></div>`
+      : `<button class="card hint" id="cLabel"><span class="fico ia" aria-hidden="true">📷</span><div class="t"><b>${pre.barcode ? 'No lo encuentro: haz foto a la etiqueta' : 'Leer la etiqueta con la cámara'}</b><span>Foto a la tabla nutricional y se rellena sola.</span></div>${ico('i-right')}</button>`}
     <p class="note" style="margin:0 4px">Valores por 100 g, como en la etiqueta.</p>
     <div class="card group form">
       <div class="f"><label for="cName">Nombre</label><input id="cName" type="text" value="${esc(pre.name || '')}" placeholder="Obligatorio" style="font-family:var(--font)"></div>
       <div class="f"><label for="cBrand">Marca</label><input id="cBrand" type="text" value="${esc(pre.brand || '')}" placeholder="Opcional" style="font-family:var(--font)"></div>
-      <div class="f"><label for="cK">Calorías</label><span><input id="cK" type="text" inputmode="decimal" placeholder="0" style="width:4em"> <span class="u">kcal</span></span></div>
-      <div class="f"><label for="cP">🍗 Proteína</label><span><input id="cP" type="text" inputmode="decimal" placeholder="0" style="width:4em"> <span class="u">g</span></span></div>
-      <div class="f"><label for="cC">🍞 Hidratos</label><span><input id="cC" type="text" inputmode="decimal" placeholder="0" style="width:4em"> <span class="u">g</span></span></div>
-      <div class="f"><label for="cF">🥑 Grasas</label><span><input id="cF" type="text" inputmode="decimal" placeholder="0" style="width:4em"> <span class="u">g</span></span></div>
-      <div class="f"><label for="cS">Ración (opcional)</label><span><input id="cS" type="text" inputmode="decimal" placeholder="—" style="width:4em"> <span class="u">g</span></span></div>
+      <div class="f"><label for="cK">Calorías</label><span><input id="cK" type="text" inputmode="decimal" placeholder="0" value="${val(pre.kcal)}" style="width:4em"> <span class="u">kcal</span></span></div>
+      <div class="f"><label for="cP">🍗 Proteína</label><span><input id="cP" type="text" inputmode="decimal" placeholder="0" value="${val(pre.p)}" style="width:4em"> <span class="u">g</span></span></div>
+      <div class="f"><label for="cC">🍞 Hidratos</label><span><input id="cC" type="text" inputmode="decimal" placeholder="0" value="${val(pre.c)}" style="width:4em"> <span class="u">g</span></span></div>
+      <div class="f"><label for="cF">🥑 Grasas</label><span><input id="cF" type="text" inputmode="decimal" placeholder="0" value="${val(pre.f)}" style="width:4em"> <span class="u">g</span></span></div>
+      <div class="f"><label for="cS">Ración (opcional)</label><span><input id="cS" type="text" inputmode="decimal" placeholder="—" value="${val(pre.serving && pre.serving.g)}" style="width:4em"> <span class="u">g</span></span></div>
+      ${pre.extra && Object.values(pre.extra).some(x => x != null) ? `<div class="f"><span class="muted" style="font-size:14px">También leído</span><span class="muted" style="font-size:13px;text-align:right">${[['azúcares', pre.extra.sug], ['saturadas', pre.extra.sat], ['fibra', pre.extra.fib], ['sal', pre.extra.salt]].filter(x => x[1] != null).map(([n, v]) => `${n} ${f1(v)} g`).join(' · ')}</span></div>` : ''}
     </div>
     <p class="err" id="cErr" hidden></p>
     <button class="btn" id="cSave">Guardar y continuar</button>`);
+  const cl = $('#cLabel'); if (cl) cl.onclick = () => startLabel({ mode: 'add', pre: { barcode: pre.barcode, name: $('#cName').value.trim(), brand: $('#cBrand').value.trim() } });
   $('#cSave').onclick = async () => {
     const sg = num($('#cS').value);
     const food = { name: $('#cName').value.trim(), brand: $('#cBrand').value.trim() || undefined, kcal: num($('#cK').value), p: num($('#cP').value) || 0, c: num($('#cC').value) || 0,
-      f: num($('#cF').value) || 0, barcode: pre.barcode || undefined, serving: sg > 0 ? { g: sg, label: '1 ración' } : undefined, source: 'manual', lastUsed: Date.now() };
+      f: num($('#cF').value) || 0, barcode: pre.barcode || undefined, serving: sg > 0 ? { g: sg, label: '1 ración' } : undefined, extra: pre.extra, source: pre.fromLabel ? 'label' : 'manual', lastUsed: Date.now() };
     const err = !food.name ? 'Escribe el nombre.' : !(food.kcal >= 0 && food.kcal <= 900) ? 'Las calorías por 100 g van de 0 a 900.' : [food.p, food.c, food.f].some(v => v < 0 || v > 100) ? 'Proteína, hidratos y grasas van de 0 a 100 g.' : null;
     if (err) { $('#cErr').textContent = err; $('#cErr').hidden = false; return; }
-    food.id = await store.put('foods', food); openGrams(food);
+    food.id = await store.put('foods', food); food.extra ? openProduct(food, 'add') : openGrams(food);
   };
 }
 
@@ -1399,8 +1404,12 @@ async function onCode(code) {
   try {
     const p = await fetchOFF(code), food = p ? foodFromOFF(p, code) : null;
     if (!food) {
-      if (scanMode === 'add') { toast(p ? 'Faltan datos: complétalos' : 'No encontrado: créalo'); return openCreate({ barcode: code, name: p ? (p.product_name_es || p.product_name || '') : '' }); }
-      openSheet('No encontrado', `<div class="card alert"><b>No hay datos de este producto</b>Haz una foto al producto o a su etiqueta y la IA lo analiza.</div><button class="btn" id="toPhoto">Hacer foto</button>`);
+      if (scanMode === 'add') { toast(p ? 'Le faltan datos nutricionales' : 'Producto no encontrado'); return openCreate({ barcode: code, name: p ? (p.product_name_es || p.product_name || '') : '' }); }
+      openSheet('No encontrado', `<div class="card alert"><b>Este producto no está en la base de datos</b>Hazle una foto y lo valoro igual.</div>
+        <button class="btn" id="toLabel">${ico('i-camera')} Foto de la tabla nutricional</button>
+        <button class="btn soft" id="toPhoto">Foto del producto (frontal o ingredientes)</button>
+        <p class="note" style="margin:0 4px">Con la tabla nutricional obtienes la ficha completa y queda guardado: la próxima vez que lo escanees, ya lo reconoce.</p>`);
+      $('#toLabel').onclick = () => startLabel({ mode: 'super', pre: { barcode: code, name: p ? (p.product_name_es || p.product_name || '') : '' } });
       return $('#toPhoto').onclick = () => startPhoto('shelf');
     }
     if (local) food.id = local.id;
@@ -1500,20 +1509,57 @@ async function askProductAI(food, ctx) {
   } catch (e) { box.innerHTML = `<div class="card alert"><b>No se pudo analizar</b>${esc(aiErr(e))}</div>`; }
 }
 
+/* ---- foto de la etiqueta nutricional → datos automáticos ---- */
+let labelCtx = null;
+function startLabel(ctx) { labelCtx = ctx; startPhoto('label'); }
+const LABEL_SCHEMA = { type: 'OBJECT', properties: { readable: B, name: S, brand: S, kcal_100g: N, protein_100g: N, carbs_100g: N, sugars_100g: N, fat_100g: N, saturated_100g: N, fiber_100g: N, salt_100g: N, serving_g: N },
+  required: ['readable', 'name', 'brand', 'kcal_100g', 'protein_100g', 'carbs_100g', 'sugars_100g', 'fat_100g', 'saturated_100g', 'fiber_100g', 'salt_100g', 'serving_g'] };
+const LABEL_PROMPT = `Lee la tabla de información nutricional de esta foto (etiqueta de un envase).
+Devuelve los valores POR 100 g (o 100 ml). Si la tabla solo da valores por ración, conviértelos a 100 g usando el tamaño de la ración.
+Si la energía solo aparece en kJ, conviértela a kcal (divide entre 4,184). Si aparecen kJ y kcal, usa las kcal.
+Si un valor no aparece en la etiqueta, pon -1. "serving_g": tamaño de la ración en gramos si aparece; si no, -1.
+"name" y "brand": el nombre y la marca si se leen en la foto; si no, cadena vacía.
+"readable": false si la foto no muestra una tabla nutricional legible. No inventes ningún número.`;
+const v0 = x => (typeof x === 'number' && x >= 0 ? Math.round(x * 10) / 10 : undefined);
+async function runLabel() {
+  openSheet('Etiqueta', `<img class="shot" src="${shot.dataUrl}" alt="">${loadingHTML('Leyendo la tabla nutricional…')}`);
+  const ctx = labelCtx || { mode: 'add', pre: {} }, pre = ctx.pre || {};
+  try {
+    const r = await gemini([{ inline_data: { mime_type: 'image/jpeg', data: shot.b64 } }, { text: LABEL_PROMPT }], LABEL_SCHEMA);
+    if (!r.readable || !(v0(r.kcal_100g) >= 0)) {
+      openSheet('Etiqueta', `<img class="shot" src="${shot.dataUrl}" alt=""><div class="card alert"><b>No he podido leer la tabla</b>Haz la foto de cerca, recta y con buena luz, solo a la tabla de información nutricional.</div>
+        <button class="btn" id="lbAgain">${ico('i-camera')} Repetir foto</button><button class="btn soft" id="lbHand">Escribirlo a mano</button>`);
+      $('#lbAgain').onclick = () => startLabel(ctx); $('#lbHand').onclick = () => openCreate(pre); return;
+    }
+    const sg = v0(r.serving_g);
+    const food = {
+      name: (r.name || '').trim() || pre.name || 'Producto', brand: (r.brand || '').trim() || pre.brand || undefined,
+      kcal: v0(r.kcal_100g), p: v0(r.protein_100g) || 0, c: v0(r.carbs_100g) || 0, f: v0(r.fat_100g) || 0,
+      serving: sg > 0 && sg < 2000 ? { g: sg, label: '1 ración' } : undefined, barcode: pre.barcode || undefined,
+      extra: { sug: v0(r.sugars_100g), sat: v0(r.saturated_100g), fib: v0(r.fiber_100g), salt: v0(r.salt_100g) }, source: 'label', lastUsed: Date.now()
+    };
+    if (ctx.mode === 'super') { food.id = await store.put('foods', food); return openProduct(food, 'super'); }
+    openCreate({ ...food, fromLabel: true });
+  } catch (e) {
+    openSheet('Etiqueta', `<img class="shot" src="${shot.dataUrl}" alt=""><div class="card alert"><b>No se pudo leer</b>${esc(aiErr(e))}</div><button class="btn soft" id="lbHand">Escribirlo a mano</button>`);
+    $('#lbHand').onclick = () => openCreate(pre);
+  }
+}
+
 /* ---- fotos: Food Lens y semáforo ---- */
 let photoMode = 'lens', shot = null;
 function startPhoto(mode) { photoMode = mode; if (needKey()) return; const inp = $('#fileInput'); inp.value = ''; inp.click(); }
 $('#fileInput').addEventListener('change', async e => {
   const f = e.target.files && e.target.files[0]; if (!f) return;
-  openSheet(photoMode === 'lens' ? 'Tu plato' : 'Semáforo', loadingHTML('Preparando la foto…'));
-  try { const img = await prepImage(f); shot = img; photoMode === 'lens' ? lensNote() : runShelf(); }
+  openSheet(photoMode === 'lens' ? 'Tu plato' : photoMode === 'label' ? 'Etiqueta' : 'Semáforo', loadingHTML('Preparando la foto…'));
+  try { const img = await prepImage(f, photoMode === 'label' ? 1600 : 1024); shot = img; photoMode === 'lens' ? lensNote() : photoMode === 'label' ? runLabel() : runShelf(); }
   catch { openSheet('Foto', `<div class="card alert"><b>No se pudo abrir la foto</b>Prueba con otra imagen.</div>`); }
 });
-async function prepImage(file) {
+async function prepImage(file, maxSide = 1024) {
   const url = URL.createObjectURL(file);
   try {
     const img = new Image(); await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
-    const k = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+    const k = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
     const dataUrl = c.toDataURL('image/jpeg', 0.82); return { dataUrl, b64: dataUrl.split(',')[1] };
