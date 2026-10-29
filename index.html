@@ -413,6 +413,18 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
 .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:50;transform:translate(-50%,16px);opacity:0;pointer-events:none;
   background:var(--fg);color:var(--bg);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:16px;font-weight:600;font-size:15px;max-width:calc(100% - 32px);width:max-content;transition:.25s;white-space:normal;line-height:1.3}
 .toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.tipbar{position:fixed;left:12px;right:12px;max-width:560px;margin:0 auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;gap:12px;align-items:flex-start;
+  background:var(--accent);color:var(--accent-ink);border-radius:18px;padding:14px 14px 14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25);font-size:15px;line-height:1.4;animation:tipIn .3s ease}
+.tipbar b{display:block;margin-bottom:2px}.tipbar button{flex:none;font-weight:800;color:inherit;background:rgba(255,255,255,.22);border-radius:999px;padding:7px 12px;font-size:14px}
+@keyframes tipIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.tour{display:flex;flex-direction:column;gap:14px;min-height:340px}
+.tour .big{display:flex;align-items:center;justify-content:center;gap:10px;font-size:50px;line-height:1}
+.tour .tabchip{display:inline-flex;align-items:center;gap:6px;align-self:center;font-size:14px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:999px}
+.tour .tabchip svg{width:18px;height:18px}
+.tour h3{margin:0;font-size:22px;text-align:center}
+.tour ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.tour li{background:var(--card);border-radius:14px;padding:11px 14px;font-size:15px;line-height:1.4;box-shadow:var(--shadow)}
+.dots{display:flex;justify-content:center;gap:6px}.dots i{width:7px;height:7px;border-radius:50%;background:var(--sep)}.dots i.on{background:var(--accent);width:20px;border-radius:4px}
 .toast button{color:var(--accent);font-weight:800}
 @media (min-width:700px){ .sum{padding:24px} .ring{width:160px;height:160px} }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
@@ -470,8 +482,8 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
   <section class="macros" id="macros" aria-label="Macronutrientes"></section>
   <div id="xtra" hidden></div>
   <section id="nextMeal" hidden></section>
-  <section class="meals" id="meals"></section>
   <button class="card hint" id="coachOpen"><span class="fico ia" aria-hidden="true">💬</span><div class="t"><b>Coach IA</b><span>Pregúntale lo que quieras: conoce tu objetivo, tu semana y tu peso.</span></div><svg class="i"><use href="#i-right"/></svg></button>
+  <section class="meals" id="meals"></section>
 </main>
 
 <!-- ======================= AÑADIR ======================= -->
@@ -671,6 +683,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
     <p class="label">Ayuda a mejorar la app</p>
     <button class="card hint" id="fbOpen"><span class="fico ia" aria-hidden="true">💬</span><div class="t"><b>Enviar una opinión</b><span>Valórala, cuéntame qué cambiarías o qué te parece.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <p class="note" id="usageNote" hidden>Para saber cuánta gente usa NutriScan, la app envía una vez al día un aviso anónimo: un número aleatorio de este móvil, la versión y si es iPhone o Android. Nunca lo que comes, tu peso, tus medidas ni tus fotos.</p>
+    <button class="card hint" id="tourOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">📘</span><div class="t"><b>Guía rápida</b><span>Dónde está cada cosa y cómo activar la IA.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <button class="card hint" id="wnOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">📣</span><div class="t"><b>Novedades</b><span>Lo que ha cambiado en cada versión.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <button class="card hint" id="wzOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">👋</span><div class="t"><b>Repetir la configuración guiada</b><span>Datos, día a día, deportes y objetivo paso a paso.</span></div><svg class="i"><use href="#i-right"/></svg></button>
   </section>
@@ -723,6 +736,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
 <input type="file" accept="image/*" id="fileInput" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" accept=".json,application/json" id="backupInput" class="sr" tabindex="-1" aria-hidden="true">
 <input type="file" accept="image/*" id="photoInput" class="sr" tabindex="-1" aria-hidden="true">
+<div class="tipbar" id="tipbar" role="status" hidden><div style="flex:1;min-width:0" id="tipTxt"></div><button id="tipOk">Entendido</button></div>
 <div class="toast" id="toast" role="status" aria-live="polite"><span id="toastMsg"></span><button id="toastAct" hidden></button></div>
 
 <script>
@@ -1039,7 +1053,7 @@ function go(v) {
   view = v;
   $$('.view').forEach(el => el.hidden = el.id !== 'v-' + v);
   $$('.tab').forEach(t => t.dataset.tab === v ? t.setAttribute('aria-current', 'page') : t.removeAttribute('aria-current'));
-  render();
+  render(); setTimeout(() => view === v && maybeTip(v), v === 'hoy' ? 700 : 350);
 }
 function render() { ({ hoy: renderHoy, add: renderAdd, super: renderSuper, prog: renderProg, perfil: renderPerfil })[view](); }
 $$('.tab').forEach(t => t.onclick = () => go(t.dataset.tab));
@@ -2083,10 +2097,7 @@ const aiErr = err => AI_MSG[err && err.message] || (err instanceof SyntaxError ?
 const okN = (x, lo, hi, d = 0) => { const v = typeof x === 'number' ? x : num(x); return isFinite(v) && v >= lo && v <= hi ? v : d; };
 function needKey() {
   if (aiKey()) return false;
-  openSheet('Activa la IA', `<div class="fh"><span class="fico ia">${ico('i-spark')}</span><div><b>Falta tu clave gratuita</b><span>Se configura una sola vez en Perfil.</span></div></div>
-    <p style="margin:0">1. Entra en <b>aistudio.google.com/apikey</b> con tu cuenta de Google.<br>2. Crea una clave y cópiala.<br>3. Pégala en <b>Perfil › Inteligencia artificial</b>.</p><button class="btn" id="toKey">Ir a Perfil</button>`);
-  $('#toKey').onclick = () => { closeSheet(); go('perfil'); setTimeout(() => $('#aiKey').scrollIntoView({ block: 'center' }), 350); };
-  return true;
+  openAISetup('need'); return true;
 }
 function profileText(ctx) {
   if (!ctx.ready) return 'Perfil: el usuario aún no ha completado sus datos (da consejos generales). ' + `Hoy lleva comido ${f0(ctx.eaten.kcal)} kcal y ${f0(ctx.eaten.p)} g de proteína.`;
@@ -2912,22 +2923,26 @@ bindSeg($('#goalSeg'), v => {
 });
 bindSeg($('#paceSeg'), v => { prof.pace = v; updateGoal(); });
 $('#neatList').addEventListener('click', e => { const b = e.target.closest('[data-neat]'); if (!b) return; prof.neat = b.dataset.neat; $$('#neatList .opt').forEach(o => o.setAttribute('aria-checked', o === b)); updateGoal(); });
-$('#saveKey').onclick = async () => {
-  const k = $('#aiKey').value.trim();
-  if (!k) { ls.del('ns.aiKey'); ls.del('ns.aiModel'); return $('#aiStatus').textContent = 'Clave eliminada'; }
-  ls.set('ns.aiKey', k); $('#aiStatus').textContent = 'Comprobando…';
-  ls.del('ns.aiModel'); ls.del('ns.aiModels');
+/* guarda la clave y hace una prueba real · devuelve { ok, msg } */
+async function testAIKey(k) {
+  k = String(k || '').trim().replace(/\s+/g, '');
+  if (!k) { ls.del('ns.aiKey'); ls.del('ns.aiModel'); return { ok: false, msg: 'Clave eliminada' }; }
+  ls.set('ns.aiKey', k); ls.del('ns.aiModel'); ls.del('ns.aiModels');
   try {
     await modelCandidates(k, true);
     const r = await gemini([{ text: 'Prueba de conexión. Devuelve ok = true.' }], { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] });
     if (!r || r.ok !== true) throw new Error('EMPTY');
-    $('#aiStatus').textContent = '✓ Funciona · ' + (ls.get('ns.aiModel') || ''); toast('IA lista');
-  } catch (e) { $('#aiStatus').textContent = navigator.onLine ? aiErr(e) : 'Guardada. Se comprobará con conexión.'; }
+    return { ok: true, msg: '✓ Funciona · ' + (ls.get('ns.aiModel') || '') };
+  } catch (e) { return { ok: false, saved: !navigator.onLine, msg: navigator.onLine ? aiErr(e) : 'Guardada. Se comprobará cuando tengas conexión.' }; }
+}
+$('#saveKey').onclick = async () => {
+  $('#aiStatus').textContent = 'Comprobando…';
+  const r = await testAIKey($('#aiKey').value); $('#aiStatus').textContent = r.msg; if (r.ok) toast('IA lista');
 };
 $('#wipeBtn').onclick = () => { $('#wipeBtn').hidden = true; $('#wipeBox').hidden = false; };
 $('#wipeNo').onclick = () => { $('#wipeBtn').hidden = false; $('#wipeBox').hidden = true; };
 $('#wipeYes').onclick = async () => {
-  await store.clear(true); ['ns.measures', 'ns.extra', 'ns.plan', 'ns.shop', 'ns.coach', 'ns.profile', 'ns.profile2', 'ns.profile3', 'ns.seeded', 'ns.seedVer', 'ns.shelfHist', 'ns.weights', 'ns.favs', 'ns.swapNo', 'ns.lensMem', 'ns.onboarded',
+  await store.clear(true); ['ns.tourDone', 'ns.tips', 'ns.aiSetupPending', 'ns.measures', 'ns.extra', 'ns.plan', 'ns.shop', 'ns.coach', 'ns.profile', 'ns.profile2', 'ns.profile3', 'ns.seeded', 'ns.seedVer', 'ns.shelfHist', 'ns.weights', 'ns.favs', 'ns.swapNo', 'ns.lensMem', 'ns.onboarded',
     'ns.fridge', 'ns.wcSeen', 'ns.lastBackup', 'ns.backupSnooze', 'ns.store', 'ns.weighSnooze', 'ns.streakSeen', 'ns.installHidden', 'ns.fbQueue'].forEach(ls.del); await seedIfNeeded();
   $('#wipeBtn').hidden = false; $('#wipeBox').hidden = true; toast('Datos borrados'); wz = null; go('hoy'); setTimeout(() => openWizard(0), 350);
 };
@@ -3029,11 +3044,88 @@ $('#invGen').onclick = async () => {
 };
 
 /* =====================================================================
+   GUÍA RÁPIDA (primera vez, después de la bienvenida) + ACTIVAR LA IA + PISTAS POR PESTAÑA
+   ===================================================================== */
+const TOUR = [
+  { e: '👋', t: 'Así funciona NutriScan', pts: ['Abajo tienes 5 pestañas: <b>Hoy</b>, <b>Añadir</b>, <b>Súper</b>, <b>Progreso</b> y <b>Perfil</b>.', 'En 30 segundos te enseño qué hay en cada una.', 'Puedes volver a ver esta guía cuando quieras en <b>Perfil › Guía rápida</b>.'] },
+  { e: '📅', tab: ['i-today', 'Hoy'], t: 'Tu día', pts: ['El anillo te dice las <b>calorías que te quedan</b>; debajo, proteína, hidratos y grasas.', 'Toca un alimento para <b>cambiar los gramos, moverlo o duplicarlo</b>.', 'En cada comida: <b>＋</b> añadir · <b>⭐</b> guardar como favorito · <b>🔁</b> copiar o mover la comida entera.', '<b>+ Deporte extra</b>: si hoy entrenas algo fuera de tu plan, tu objetivo sube.', '<b>💬 Coach IA</b>: pregúntale lo que quieras sobre tu dieta.'] },
+  { e: '➕', tab: ['i-add', 'Añadir'], t: 'Apunta lo que comes', pts: ['<b>📷 Foto del plato</b>: la IA reconoce cada alimento y sus gramos.', '<b>🔎 Escanear o buscar</b>: código de barras o productos de tu súper.', '<b>🎙️ Dicta o escribe</b> lo que comiste, o <b>🍽️ Comí fuera</b> si fue en un bar.', 'Recetas para ti, <b>🧊 Con lo que tengo</b> y <b>📅 menú semanal</b> con lista de la compra.'] },
+  { e: '🛒', tab: ['i-cart', 'Súper'], t: '¿Me conviene este producto?', pts: ['En la tienda, <b>escanea el código</b> y te digo si encaja con tu objetivo, con un semáforo 🟢🟡🔴.', 'Si no tiene código, <b>hazle una foto</b> y lo valora la IA.'] },
+  { e: '📈', tab: ['i-chart', 'Progreso'], t: 'Tu peso y tu evolución', pts: ['<b>⚖️ Aquí te pesas</b>: mejor por la mañana, en ayunas. Tu objetivo se ajusta solo.', '<b>📏 Medidas</b> y <b>📸 fotos de progreso</b> (se quedan solo en tu móvil).', 'Resumen de la semana y <b>💡 sugerencias</b> de pequeños cambios.'] },
+  { e: '👤', tab: ['i-user', 'Perfil'], t: 'Tus datos', pts: ['Tu <b>objetivo</b> (déficit, mantener o volumen), tus datos y tus <b>deportes</b>.', '<b>☁️ Copia de seguridad</b>: guárdala de vez en cuando para no perder nada.', 'La <b>clave de la IA</b> y el botón para <b>enviar tu opinión</b>.'] }
+];
+function openTour(i = 0) {
+  i = clamp(i, 0, TOUR.length - 1); const s = TOUR[i], last = i === TOUR.length - 1;
+  openSheet(i ? `Guía rápida · ${i} de ${TOUR.length - 1}` : 'Guía rápida', `<div class="tour">
+    <div class="big" aria-hidden="true">${s.e}</div>
+    ${s.tab ? `<span class="tabchip"><svg class="i"><use href="#${s.tab[0]}"/></svg>Pestaña «${s.tab[1]}»</span>` : ''}
+    <h3>${s.t}</h3><ul>${s.pts.map(x => `<li>${x}</li>`).join('')}</ul></div>
+    <div class="dots" aria-hidden="true">${TOUR.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="row2">${i ? '<button class="btn soft" id="tuBack">Atrás</button>' : '<button class="btn soft" id="tuSkip">Saltar</button>'}<button class="btn" id="tuNext">${last ? (aiKey() ? '¡Listo!' : 'Siguiente: la IA') : i ? 'Siguiente' : 'Empezar'}</button></div>`);
+  const end = () => { ls.set('ns.tourDone', true); if (aiKey()) { closeSheet(); toast('¡Todo listo! Empieza añadiendo tu primera comida'); } else openAISetup('tour'); };
+  $('#tuNext').onclick = () => last ? end() : openTour(i + 1);
+  const bk = $('#tuBack'); if (bk) bk.onclick = () => openTour(i - 1);
+  const sk = $('#tuSkip'); if (sk) sk.onclick = end;
+  let x0 = null; const body = $('#shBody');
+  body.ontouchstart = e => { x0 = e.touches[0].clientX; };
+  body.ontouchend = e => { if (x0 == null) return; const dx = e.changedTouches[0].clientX - x0; x0 = null; if (Math.abs(dx) > 70) dx < 0 ? (last ? end() : openTour(i + 1)) : i && openTour(i - 1); };
+}
+const AI_STUDIO = 'https://aistudio.google.com/apikey';
+function openAISetup(from = 'tour') {
+  ls.set('ns.aiSetupPending', Date.now());
+  openSheet('Activa la IA (gratis)', `<div style="font-size:46px;text-align:center" aria-hidden="true">✨</div>
+    <p style="margin:0">${from === 'need' ? 'Esta función usa la IA. ' : ''}Con la IA puedes <b>analizar fotos de tus platos</b>, <b>dictar lo que comes</b>, valorar productos y hablar con el <b>Coach</b>. Solo necesitas una clave gratuita de Google. Se tarda 1 minuto.</p>
+    <ol class="card ol">
+      <li>Toca <b>Abrir Google AI Studio</b> y entra con tu cuenta de Google (la de Gmail).</li>
+      <li>Si es la primera vez, acepta las condiciones.</li>
+      <li>Pulsa <b>Create API key</b> («Crear clave de API»). Si te pide un proyecto, elige el que aparece o crea uno.</li>
+      <li><b>Copia la clave</b>: es un texto largo que empieza por <b>AIza</b>.</li>
+      <li>Vuelve a NutriScan, <b>pégala aquí abajo</b> y pulsa <b>Activar</b>.</li>
+    </ol>
+    <a class="btn soft" id="asOpen" style="text-decoration:none" href="${AI_STUDIO}" target="_blank" rel="noopener">Abrir Google AI Studio ↗</a>
+    <input id="asKey" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí tu clave (AIza…)" style="width:100%;border:0;border-radius:14px;background:var(--card);padding:14px;font-size:16px;box-shadow:var(--shadow);font-family:var(--font)">
+    <button class="btn" id="asGo">Activar</button>
+    <p class="note" id="asSt" style="margin:0 4px;text-align:center" hidden></p>
+    <button class="btn line" id="asLater">${from === 'need' ? 'Cancelar' : 'Más tarde'}</button>
+    <p class="note" style="margin:0 4px">Sin la IA puedes usar todo lo demás: escanear, buscar, recetas, peso… La clave se guarda solo en tu móvil y puedes cambiarla en <b>Perfil › Inteligencia artificial</b>.</p>`);
+  const later = () => { ls.del('ns.aiSetupPending'); closeSheet(); if (from === 'tour') toast('Puedes activarla cuando quieras desde Perfil'); };
+  $('#asLater').onclick = later;
+  $('#asGo').onclick = guard(async () => {
+    const k = $('#asKey').value.trim(), st = $('#asSt'); st.hidden = false;
+    if (!/^AIza[\w-]{20,}$/.test(k.replace(/\s+/g, ''))) { st.textContent = 'Esa clave no parece correcta: debe empezar por «AIza» y ser larga. Cópiala entera.'; return; }
+    st.textContent = 'Comprobando…';
+    const r = await testAIKey(k); st.textContent = r.msg;
+    if (r.ok || r.saved) { ls.del('ns.aiSetupPending'); const ki = $('#aiKey'); if (ki) ki.value = aiKey(); closeSheet(); toast(r.ok ? '✨ ¡IA activada!' : 'Clave guardada'); if (view === 'perfil') renderPerfil(); }
+  });
+}
+/* pistas: la primera vez que entras en cada pestaña (después de la guía) */
+const TIPS = {
+  add: ['➕ Añadir', 'Elige cómo apuntar: foto del plato, escáner, dictado o «Comí fuera». Más abajo tienes recetas y el menú semanal.'],
+  super: ['🛒 Súper', 'Escanea un producto en la tienda y te digo si te conviene para tu objetivo.'],
+  prog: ['📈 Progreso', 'Aquí registras tu peso. Pésate por la mañana: tu objetivo se ajusta solo.'],
+  perfil: ['👤 Perfil', 'Aquí cambias tu objetivo y tus deportes. Haz una copia de seguridad de vez en cuando.'],
+  hoy: ['👆 Un truco', 'Toca cualquier alimento para cambiar los gramos, moverlo a otra comida o duplicarlo.']
+};
+function maybeTip(v) {
+  const bar = $('#tipbar'); bar.hidden = true;
+  if (!ls.get('ns.tourDone') || !$('#sheet').hidden || !$('#lock').hidden) return;
+  const seen = ls.get('ns.tips', {}); if (seen[v] || !TIPS[v]) return;
+  if (v === 'hoy' && !$('#meals [data-edit]')) return; // en Hoy solo cuando ya hay algo apuntado
+  $('#tipTxt').innerHTML = `<b>${TIPS[v][0]}</b>${esc(TIPS[v][1])}`; bar.hidden = false;
+  $('#tipOk').onclick = () => { seen[v] = true; ls.set('ns.tips', seen); bar.hidden = true; };
+}
+$('#tourOpen').onclick = () => openTour(0);
+
+/* =====================================================================
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.11';
+const APP_VERSION = '3.12';
 const CHANGELOG = [
+  { v: '3.12', date: '30 oct 2026', items: [
+    ['📘', 'Guía rápida', 'Qué hay en cada pestaña y dónde está cada cosa. Ábrela cuando quieras en Perfil › Guía rápida.'],
+    ['✨', 'Activar la IA paso a paso', 'Si aún no tienes la IA, te explico cómo conseguir tu clave gratis y la activas sin salir de la ventana.'],
+    ['💬', 'Coach más a mano', 'El Coach IA está ahora justo encima de tus comidas en «Hoy».']] },
   { v: '3.10', date: '30 oct 2026', items: [
     ['💬', 'Tus opiniones llegan al creador', 'En Perfil › «Enviar una opinión» puedes valorar la app, proponer mejoras o contar un fallo. Llega directamente, sin WhatsApp.'],
     ['📊', 'Estadística anónima', 'Una vez al día la app avisa de forma anónima de que se usa (versión y tipo de móvil). Nunca envía lo que comes, tu peso ni tus fotos.']] },
@@ -3118,7 +3210,7 @@ function wizStep(n) {
       <p class="note" style="margin:0 4px;text-align:center">Todo se guarda solo en tu móvil.</p>
       <button class="btn" id="wzNext">Empezar</button><button class="btn soft" id="wzLater">Ahora no</button>`);
     $('#wzNext').onclick = () => wizStep(1);
-    $('#wzLater').onclick = () => { ls.set('ns.onboarded', true); wz = null; closeSheet(); };
+    $('#wzLater').onclick = () => { ls.set('ns.onboarded', true); wz = null; if (!ls.get('ns.tourDone')) openTour(0); else closeSheet(); };
     return;
   }
   if (n === 1) {
@@ -3177,7 +3269,7 @@ function wizStep(n) {
     $('#wzNext').onclick = () => {
       saveProfile(wz); ls.set('ns.onboarded', true);
       if (wz.weight) { const ws = weights().filter(w => w.d !== dateKey()); ws.push({ d: dateKey(), kg: wz.weight }); ls.set('ns.weights', ws); }
-      wz = null; closeSheet(); toast('¡Perfil listo!'); go('hoy');
+      wz = null; go('hoy'); if (!ls.get('ns.tourDone')) openTour(0); else { closeSheet(); toast('¡Perfil listo!'); }
     };
     draw();
   }
@@ -3309,6 +3401,8 @@ async function startApp() {
   const isNew = !profileReady(getProfile()) && !ls.get('ns.onboarded') && !(await store.all('logs')).length;
   if (isNew) { ls.set('ns.seenVersion', APP_VERSION); setTimeout(() => openWizard(0), 400); }
   else if (ls.get('ns.seenVersion') !== APP_VERSION) setTimeout(() => showWhatsNew(), 500);
+  else if (Date.now() - (+ls.get('ns.aiSetupPending', 0) || 0) < 30 * 60 * 1000 && !aiKey()) setTimeout(() => openAISetup('tour'), 500); // volvió de AI Studio y el iPhone recargó la app
+  if (!isNew && !ls.get('ns.tourDone') && ls.get('ns.seenVersion')) ls.set('ns.tourDone', true); // usuarios de antes: guía en Perfil y pistas sí
   sendQueuedFeedback(); window.addEventListener('online', sendQueuedFeedback); pingUsage();
 }
 const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
