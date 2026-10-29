@@ -3032,8 +3032,11 @@ $('#invGen').onclick = async () => {
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.9';
+const APP_VERSION = '3.10';
 const CHANGELOG = [
+  { v: '3.10', date: '30 oct 2026', items: [
+    ['💬', 'Tus opiniones llegan al creador', 'En Perfil › «Enviar una opinión» puedes valorar la app, proponer mejoras o contar un fallo. Llega directamente, sin WhatsApp.'],
+    ['📊', 'Estadística anónima', 'Una vez al día la app avisa de forma anónima de que se usa (versión y tipo de móvil). Nunca envía lo que comes, tu peso ni tus fotos.']] },
   { v: '3.9', date: '28 oct 2026', items: [
     ['🌍', 'NutriScan es pública', 'Ya no hace falta código: cualquiera puede entrar con el enlace. Compártela con quien quieras.']] },
   { v: '3.8', date: '28 oct 2026', items: [
@@ -3186,7 +3189,9 @@ function wizStep(n) {
    de un Formulario de Google y los identificadores entry.XXXX de cada pregunta.
    Si está vacío, la opinión se comparte por WhatsApp/correo con el menú del móvil.
    ===================================================================== */
-const FEEDBACK = { form: '', sheet: '', fields: { stars: '', type: '', text: '', name: '' } };
+const FEEDBACK = { form: 'https://docs.google.com/forms/d/e/1FAIpQLScuipLOtRg5pXMpeKQ1EjmknwEc66QaZm1eFowhvqracqDKWg/viewform',
+  sheet: 'https://docs.google.com/spreadsheets/d/1nM7nBlvZTIG3nmoY8we6OH8xshNlRA0AdJie14bgRjU/edit',
+  fields: { stars: 'entry.811758407', type: 'entry.1072223085', text: 'entry.236992616', name: 'entry.638510236' } };
 $('#usageNote').hidden = !FEEDBACK.form;
 /* Uso: una vez al día (si hay formulario) se envía «quién la abre» con la versión, para que el creador vea quién la usa.
    Solo se manda el nombre de la invitación, la versión y el tipo de móvil: nada de lo que comes ni tu peso. */
