@@ -669,7 +669,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
 
   <section>
     <p class="label">Ayuda a mejorar la app</p>
-    <button class="card hint" id="fbOpen"><span class="fico ia" aria-hidden="true">💬</span><div class="t"><b>Enviar una opinión</b><span>Qué falta, qué cambiarías o qué falla.</span></div><svg class="i"><use href="#i-right"/></svg></button>
+    <button class="card hint" id="fbOpen"><span class="fico ia" aria-hidden="true">💬</span><div class="t"><b>Enviar una opinión</b><span>Valórala, cuéntame qué cambiarías o qué te parece.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <p class="note" id="usageNote" hidden>Para saber cuánta gente usa NutriScan, la app envía una vez al día un aviso anónimo: un número aleatorio de este móvil, la versión y si es iPhone o Android. Nunca lo que comes, tu peso, tus medidas ni tus fotos.</p>
     <button class="card hint" id="wnOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">📣</span><div class="t"><b>Novedades</b><span>Lo que ha cambiado en cada versión.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <button class="card hint" id="wzOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">👋</span><div class="t"><b>Repetir la configuración guiada</b><span>Datos, día a día, deportes y objetivo paso a paso.</span></div><svg class="i"><use href="#i-right"/></svg></button>
@@ -3032,7 +3032,7 @@ $('#invGen').onclick = async () => {
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.10';
+const APP_VERSION = '3.11';
 const CHANGELOG = [
   { v: '3.10', date: '30 oct 2026', items: [
     ['💬', 'Tus opiniones llegan al creador', 'En Perfil › «Enviar una opinión» puedes valorar la app, proponer mejoras o contar un fallo. Llega directamente, sin WhatsApp.'],
@@ -3203,8 +3203,8 @@ function pingUsage() {
   if (!ls.get('ns.firstSeen')) ls.set('ns.firstSeen', dateKey());
   const since = daysBetween(ls.get('ns.firstSeen'), dateKey()) + 1;
   ls.set('ns.pingDay', dateKey());
-  ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), { stars: '', type: '📊 Uso diario',
-    text: `ID ${id} · v${APP_VERSION} · ${dev}${isStandalone() ? ' · app instalada' : ' · navegador'} · ${profileReady(getProfile()) ? 'perfil hecho' : 'sin perfil'} · día ${since} usándola`,
+  ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), { stars: '', type: '',
+    text: `📊 Uso diario · ID ${id} · v${APP_VERSION} · ${dev}${isStandalone() ? ' · app instalada' : ' · navegador'} · ${profileReady(getProfile()) ? 'perfil hecho' : 'sin perfil'} · día ${since} usándola`,
     name: acc.name || 'Anónimo', at: new Date().toISOString() }]);
   sendQueuedFeedback();
 }
@@ -3223,23 +3223,23 @@ async function sendQueuedFeedback() {
   ls.set('ns.fbQueue', left);
 }
 function openFeedback() {
-  let stars = 0, type = 'falta';
+  let stars = 0;
   openSheet('Tu opinión', `<p style="margin:0">Cuéntale al creador de NutriScan qué falta, qué cambiarías o qué falla. Lo lee todo.</p>
     <div style="display:flex;justify-content:center;gap:6px" id="fbStars" role="radiogroup" aria-label="Valoración">${[1, 2, 3, 4, 5].map(i => `<button data-s="${i}" aria-label="${i} estrellas" style="font-size:34px;line-height:1;filter:grayscale(1);opacity:.35">⭐</button>`).join('')}</div>
-    <div class="chips" id="fbType">${FB_TYPES.map(t => `<button class="chip${t.id === type ? ' on' : ''}" data-t="${t.id}">${t.label}</button>`).join('')}</div>
-    <textarea class="noteIn" id="fbText" placeholder="Escribe aquí tu opinión…" style="min-height:120px"></textarea>
-    <div class="card group"><div class="f"><label for="fbName">Tu nombre</label><input id="fbName" type="text" placeholder="Opcional" value="${esc((ls.get('ns.access') || {}).name || '')}" style="width:10em;font-family:var(--font)"></div></div>
+    <div><p class="label">¿Qué cambios harías?</p><textarea class="noteIn" id="fbChange" placeholder="Algo que falte, que cambiarías o que falle…" style="min-height:90px"></textarea></div>
+    <div><p class="label">Opinión</p><textarea class="noteIn" id="fbText" placeholder="Qué te parece NutriScan…" style="min-height:90px"></textarea></div>
+    <div class="card group"><div class="f"><label for="fbName">Nombre (opcional)</label><input id="fbName" type="text" placeholder="Opcional" value="${esc((ls.get('ns.access') || {}).name || '')}" style="width:10em;font-family:var(--font)"></div></div>
     <button class="btn" id="fbSend">Enviar opinión</button>`);
   $('#fbStars').onclick = e => { const b = e.target.closest('[data-s]'); if (!b) return; stars = +b.dataset.s; $$('#fbStars button').forEach(x => { const on = +x.dataset.s <= stars; x.style.filter = on ? 'none' : 'grayscale(1)'; x.style.opacity = on ? '1' : '.35'; }); };
-  $('#fbType').onclick = e => { const b = e.target.closest('[data-t]'); if (!b) return; type = b.dataset.t; $$('#fbType .chip').forEach(x => x.classList.toggle('on', x === b)); };
   $('#fbSend').onclick = async () => {
-    const text = $('#fbText').value.trim(); if (!text) return toast('Escribe tu opinión antes de enviar');
-    const item = { stars: stars ? String(stars) : '', type: (FB_TYPES.find(t => t.id === type) || {}).label, text, name: $('#fbName').value.trim(), at: new Date().toISOString() };
+    const text = $('#fbText').value.trim(), change = $('#fbChange').value.trim();
+    if (!text && !change && !stars) return toast('Pon una valoración o escribe algo antes de enviar');
+    const item = { stars: stars ? String(stars) : '', type: change, text, name: $('#fbName').value.trim(), at: new Date().toISOString() };
     if (FEEDBACK.form) {
       ls.set('ns.fbQueue', [...ls.get('ns.fbQueue', []), item]); await sendQueuedFeedback();
       closeSheet(); return toast(navigator.onLine ? '¡Gracias! Opinión enviada' : 'Se enviará cuando tengas conexión');
     }
-    const msg = `Opinión sobre NutriScan\n${item.type}${stars ? ' · ' + '★'.repeat(stars) : ''}\n\n${text}${item.name ? '\n\n— ' + item.name : ''}`;
+    const msg = `Opinión sobre NutriScan${stars ? ' · ' + '★'.repeat(stars) : ''}${change ? '\n\nCambios que haría: ' + change : ''}${text ? '\n\n' + text : ''}${item.name ? '\n\n— ' + item.name : ''}`;
     try { if (navigator.share) { await navigator.share({ text: msg }); closeSheet(); return toast('¡Gracias por tu opinión!'); } }
     catch (e) { if (e && e.name === 'AbortError') return; }
     try { await navigator.clipboard.writeText(msg); closeSheet(); toast('Copiada: pégala en WhatsApp al creador'); } catch { toast('No se pudo compartir'); }
