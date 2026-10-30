@@ -1183,7 +1183,7 @@ async function renderHints() {
   }
   const pf = getProfile(), wsAll = weights(), lastW = wsAll[wsAll.length - 1];
   const sinceW = lastW ? daysBetween(lastW.d, dateKey()) : null;
-  if (profileReady(pf) && day === dateKey() && (sinceW == null ? (await store.all('logs')).length >= 3 : sinceW >= 4) && Date.now() - ls.get('ns.weighSnooze', 0) > 2 * DAY_MS)
+  if (profileReady(pf) && day === dateKey() && (sinceW == null ? (await store.all('logs')).length >= 3 : sinceW >= 7) && Date.now() - ls.get('ns.weighSnooze', 0) > 7 * DAY_MS)
     out.push(`<div class="card hint"><span class="fico ia" aria-hidden="true">⚖️</span><div class="t"><b>${sinceW == null ? 'Registra tu peso' : `Hace ${sinceW} días que no te pesas`}</b><span>Así tu objetivo se ajusta a tu progreso real.</span></div><button class="pill" id="hWeigh">Pesarme</button><button class="x" id="hWeighX" aria-label="Recordar más tarde"><svg class="i"><use href="#i-close"/></svg></button></div>`);
   if (!profileReady(getProfile())) out.push(`<button class="card hint" id="hWelcome" style="background:var(--accent);color:var(--accent-ink)"><span class="fico" style="background:rgba(255,255,255,.2)" aria-hidden="true">👋</span><div class="t"><b>Configura tu perfil</b><span style="color:inherit;opacity:.85">Tus datos, deportes y objetivo. Te lleva 1 minuto.</span></div>${ico('i-right')}</button>`);
   if (!isStandalone() && !ls.get('ns.installHidden'))
@@ -3120,8 +3120,10 @@ $('#tourOpen').onclick = () => openTour(0);
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.12';
+const APP_VERSION = '3.13';
 const CHANGELOG = [
+  { v: '3.13', date: '30 oct 2026', items: [
+    ['⚖️', 'Menos avisos de peso', 'Ahora te recuerdo pesarte solo si llevas 7 días sin hacerlo. Si cierras el aviso, no vuelve hasta dentro de una semana.']] },
   { v: '3.12', date: '30 oct 2026', items: [
     ['📘', 'Guía rápida', 'Qué hay en cada pestaña y dónde está cada cosa. Ábrela cuando quieras en Perfil › Guía rápida.'],
     ['✨', 'Activar la IA paso a paso', 'Si aún no tienes la IA, te explico cómo conseguir tu clave gratis y la activas sin salir de la ventana.'],
