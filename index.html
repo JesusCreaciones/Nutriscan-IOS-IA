@@ -1288,21 +1288,62 @@ async function openMealMove(mealId) {
 
 /* ---- editar registro ---- */
 async function openEditLog(id) {
-  const l = (await store.by('logs', 'date', day)).find(x => x.id === id); if (!l) return;
+  const orig = (await store.by('logs', 'date', day)).find(x => x.id === id); if (!orig) return;
+  const l = { ...orig }, isAI = l.source === 'ia';
   let m = l.meal;
   openSheet('Editar', `
-    <div class="fh">${ficoHTML(l)}<div><b>${esc(l.name)}</b><span>${f0(l.kcal)} kcal / 100 g</span></div></div>
+    <div class="fh" id="eHead">${ficoHTML(l)}<div><b>${esc(l.name)}</b><span>${f0(l.kcal)} kcal / 100 g</span></div></div>
     <div class="card gbox"><button type="button" data-inc="-10" aria-label="Menos 10 gramos">−</button>
       <label><input id="eIn" type="text" inputmode="decimal" value="${+l.grams.toFixed(1)}" aria-label="Gramos"><small>g</small></label>
       <button type="button" data-inc="10" aria-label="Más 10 gramos">+</button></div>
     <div class="card four" id="ePrev"></div>
+    <div class="card pad" id="eFix" style="display:flex;flex-direction:column;gap:10px">
+      <button type="button" class="link" id="eFixT" style="text-align:left;padding:0;font-weight:700">✏️ ${isAI ? '¿No es esto o no es así? Corrígelo' : 'Corregir este alimento con IA'}</button>
+      <div id="eFixBox" ${isAI ? '' : 'hidden'} style="display:flex;flex-direction:column;gap:10px">
+        <textarea class="noteIn" id="eFixIn" style="min-height:64px" placeholder="Ej.: es arroz integral · lleva más aceite · son 2 huevos · es pavo, no pollo"></textarea>
+        <div class="chips" style="justify-content:flex-start">${['Frito', 'Con más aceite', 'Sin aceite', 'Ración grande', 'Ración pequeña', 'Con salsa'].map(q => `<button type="button" class="chip" data-fq="${q}">${q}</button>`).join('')}</div>
+        <button type="button" class="btn soft" id="eFixGo">${ico('i-spark')} Recalcular con IA</button>
+        <p class="note" id="eFixSt" style="margin:0" hidden></p>
+      </div>
+    </div>
     <div class="seg" id="eMeal">${segHTML(MEALS, m)}</div>
     ${dayPickHTML('eDate', day)}
     <button class="btn" id="eSave">Guardar cambios</button>
     <div class="row2"><button class="btn soft sm" style="width:100%" id="eDup">Duplicar</button><button class="btn line sm" style="width:100%" id="eDel">Eliminar</button></div>`);
   const upd = () => { $('#ePrev').innerHTML = fourHTML(nutr({ ...l, grams: clamp(numG($('#eIn').value) || 0, 0, MAX_G) })); };
   $('#eIn').addEventListener('input', upd);
-  $('#shBody').onclick = e => { const i = e.target.closest('[data-inc]'); if (i) { $('#eIn').value = clamp((numG($('#eIn').value) || 0) + Number(i.dataset.inc), 0, MAX_G); upd(); } };
+  $('#shBody').onclick = e => {
+    const i = e.target.closest('[data-inc]'); if (i) { $('#eIn').value = clamp((numG($('#eIn').value) || 0) + Number(i.dataset.inc), 0, MAX_G); upd(); }
+    const q = e.target.closest('[data-fq]'); if (q) { const t = $('#eFixIn'); t.value = (t.value.trim() ? t.value.trim().replace(/[,.]$/, '') + ', ' : '') + q.dataset.fq.toLowerCase(); q.classList.add('on'); }
+  };
+  $('#eFixT').onclick = () => { const b = $('#eFixBox'); b.hidden = !b.hidden; if (!b.hidden) $('#eFixIn').focus(); };
+  // corregir con IA: lee lo que escribes y recalcula nombre, gramos y valores del alimento
+  $('#eFixGo').onclick = guard(async () => {
+    const fix = $('#eFixIn').value.trim(); if (!fix) return toast('Escribe qué hay que cambiar');
+    if (needKey()) return;
+    const st = $('#eFixSt'), g0 = numG($('#eIn').value) || l.grams, before = nutr({ ...l, grams: g0 }).kcal;
+    st.hidden = false; st.textContent = 'Recalculando…'; $('#eFixGo').disabled = true;
+    try {
+      const r = await gemini([{ text: `Eres dietista-nutricionista. El usuario registró «${l.name}», ${f0(g0)} g, con estos valores por 100 g: ${f0(l.kcal)} kcal, ${f1(l.p)} g proteína, ${f1(l.c)} g hidratos, ${f1(l.f)} g grasa.
+Su corrección es: «${fix}».
+Aplica la corrección y devuelve el alimento corregido:
+- "name": nombre común en España del alimento ya corregido (si la corrección no cambia el alimento, mantén el nombre, añadiendo el detalle si aporta, p. ej. «Pechuga de pollo frita»).
+- "grams": los gramos que se comen. Si la corrección no habla de cantidad, devuelve exactamente ${f0(g0)}. Si dice unidades (p. ej. «son 2 huevos»), conviértelas a gramos (huevo 60 g, tostada 40 g, cucharada de aceite 10 g).
+- Valores por 100 g del alimento corregido (kcal, proteínas, hidratos, grasas, y si puedes fibra, azúcares y sal), de BEDCA o USDA, coherentes (kcal ≈ 4·P + 4·H + 9·G). Si añade aceite o salsa, inclúyelo en los valores del total.
+- "change": una frase corta de lo que has cambiado.` }],
+        { type: 'OBJECT', properties: { name: S, grams: N, kcal_100g: N, protein_100g: N, carbs_100g: N, fat_100g: N, fiber_100g: N, sugars_100g: N, salt_100g: N, change: S }, required: ['name', 'grams', 'kcal_100g', 'protein_100g', 'carbs_100g', 'fat_100g', 'change'] });
+      const it = cleanLens({ is_food: true, items: [{ ...r, confidence: 'media' }] }).items[0]; if (!it) throw new Error('EMPTY');
+      const oldName = l.name;
+      Object.assign(l, { name: it.name, kcal: it.kcal_100g, p: it.protein_100g, c: it.carbs_100g, f: it.fat_100g, fib: it.fiber_100g, sug: it.sugars_100g, salt: it.salt_100g, source: 'ia', fixed: true });
+      if (norm(oldName) !== norm(it.name)) { delete l.foodId; learnFix(oldName, it.name); }
+      const g1 = clamp(Math.round(it.grams) || g0, 1, MAX_G); $('#eIn').value = g1;
+      $('#eHead').innerHTML = `${ficoHTML(l)}<div><b>${esc(l.name)}</b><span>${f0(l.kcal)} kcal / 100 g</span></div>`;
+      upd(); const after = nutr({ ...l, grams: g1 }).kcal;
+      st.innerHTML = `✨ ${esc(r.change || 'Recalculado')} · <b>${f0(before)} → ${f0(after)} kcal</b>. Pulsa «Guardar cambios» para quedártelo.`;
+      $('#eSave').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (err) { st.textContent = aiErr(err); }
+    $('#eFixGo').disabled = false;
+  });
   bindSeg($('#eMeal'), v => m = v);
   $('#eSave').onclick = guard(async () => {
     const g = numG($('#eIn').value); if (!(g > 0 && g <= MAX_G)) return toast('Escribe unos gramos entre 1 y 5.000');
@@ -1314,7 +1355,7 @@ async function openEditLog(id) {
     const { id, ...rest } = l, to = pickedDay('eDate', day); await store.put('logs', { ...rest, grams: g, meal: m, date: to, createdAt: Date.now() }); closeSheet();
     toast(`Duplicado en ${mealLabel(m)}${to !== day ? ' · ' + dayTitle(to).toLowerCase() : ''}`); renderHoy();
   });
-  $('#eDel').onclick = async () => { lastDeleted = l; await store.del('logs', l.id); closeSheet(); renderHoy(); toast('Eliminado', 'Deshacer', async () => { await store.put('logs', lastDeleted); render(); }); };
+  $('#eDel').onclick = async () => { lastDeleted = orig; await store.del('logs', l.id); closeSheet(); renderHoy(); toast('Eliminado', 'Deshacer', async () => { await store.put('logs', lastDeleted); render(); }); };
   upd();
 }
 
@@ -2259,8 +2300,16 @@ function learnFromLens(d) {
   m.dishes = [{ d: d.dish, items: d.items.filter(i => i.on && i.grams > 0).map(i => `${i.name} ${Math.round(i.grams)} g`) }, ...m.dishes.filter(x => norm(x.d) !== norm(d.dish))].slice(0, 12);
   m.count++; ls.set('ns.lensMem', m);
 }
+/* corrección de un alimento ya apuntado: la IA lo recuerda para las próximas fotos */
+function learnFix(from, to) {
+  const m = lensMem(); m.fix = m.fix || {};
+  m.fix[norm(from)] = to; const ks = Object.keys(m.fix); if (ks.length > 20) delete m.fix[ks[0]];
+  ls.set('ns.lensMem', m);
+}
 function lensLearnText() {
   const m = lensMem(), lines = [];
+  const fx = Object.entries(m.fix || {}).slice(-10);
+  if (fx.length) lines.push(`- El usuario corrigió antes estos alimentos (si ves algo parecido, piensa en su corrección): ${fx.map(([a, b]) => `«${a}» era «${b}»`).join('; ')}.`);
   const rej = Object.entries(m.rej).filter(([, n]) => n >= 2).map(([k]) => k);
   if (rej.length) lines.push(`- Otras veces detectaste por error: ${rej.join(', ')}. Inclúyelos solo si se ven con claridad.`);
   if (m.dishes.length) lines.push(`- Platos que suele comer (si la foto se parece a uno, úsalo como referencia de ingredientes): ${m.dishes.slice(0, 6).map(x => `"${x.d}" (${x.items.join(', ')})`).join('; ')}.`);
@@ -3120,8 +3169,10 @@ $('#tourOpen').onclick = () => openTour(0);
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.13';
+const APP_VERSION = '3.14';
 const CHANGELOG = [
+  { v: '3.14', date: '7 nov 2026', items: [
+    ['✏️', 'Corrige un alimento con la IA', 'Toca un alimento ya apuntado, escribe qué cambiar («es arroz integral», «lleva más aceite», «son 2 huevos») y la IA recalcula las calorías. Además lo recuerda para tus próximas fotos.']] },
   { v: '3.13', date: '30 oct 2026', items: [
     ['⚖️', 'Menos avisos de peso', 'Ahora te recuerdo pesarte solo si llevas 7 días sin hacerlo. Si cierras el aviso, no vuelve hasta dentro de una semana.']] },
   { v: '3.12', date: '30 oct 2026', items: [
