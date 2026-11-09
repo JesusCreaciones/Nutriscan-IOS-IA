@@ -462,6 +462,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
     </div>
   </header>
 
+  <div id="adminNote" hidden></div>
   <div id="hoyHints" style="display:flex;flex-direction:column;gap:10px"></div>
 
   <section class="card sum" aria-label="Resumen de calorías">
@@ -674,6 +675,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
       <div style="display:flex;gap:8px" class="invOnly"><label class="search" style="flex:1;min-width:0;box-shadow:none;background:var(--fill)"><input id="invName" type="text" placeholder="Nombre de tu amigo" autocomplete="off"></label><button class="btn sm" id="invGen">Generar</button></div>
       <div id="invOut" class="invOnly" style="display:flex;flex-direction:column;gap:10px"></div>
       <div class="invOnly"><p class="label" style="margin-top:4px">Con acceso ahora</p><div id="invList" class="muted" style="font-size:15px">Cargando…</div></div>
+      <div id="adminStats" class="muted" style="font-size:15px" hidden></div>
       <button class="btn soft" id="fbSheet">📊 Ver opiniones y quién la usa</button>
     </div>
     <p class="note invOnly">Para quitarle el acceso a alguien: en GitHub abre <b>accesos.txt</b>, toca ✏️, borra su línea y pulsa <b>Commit changes</b>. Lo perderá la próxima vez que abra la app con conexión.</p>
@@ -685,6 +687,7 @@ textarea.noteIn:focus{outline:2px solid var(--accent)}
     <p class="note" id="usageNote" hidden>Para saber cuánta gente usa NutriScan, la app envía una vez al día un aviso anónimo: un número aleatorio de este móvil, la versión y si es iPhone o Android. Nunca lo que comes, tu peso, tus medidas ni tus fotos.</p>
     <button class="card hint" id="tourOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">📘</span><div class="t"><b>Guía rápida</b><span>Dónde está cada cosa y cómo activar la IA.</span></div><svg class="i"><use href="#i-right"/></svg></button>
     <button class="card hint" id="wnOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">📣</span><div class="t"><b>Novedades</b><span>Lo que ha cambiado en cada versión.</span></div><svg class="i"><use href="#i-right"/></svg></button>
+    <p class="note" id="verTap" style="text-align:center;margin-top:18px;user-select:none">NutriScan v<span id="verNum"></span></p>
     <button class="card hint" id="wzOpen" style="margin-top:10px"><span class="fico ia" aria-hidden="true">👋</span><div class="t"><b>Repetir la configuración guiada</b><span>Datos, día a día, deportes y objetivo paso a paso.</span></div><svg class="i"><use href="#i-right"/></svg></button>
   </section>
 
@@ -2864,10 +2867,11 @@ function renderPerfil() {
   $('#aiKey').value = aiKey();
   const m = ls.get('ns.aiModel'); $('#aiStatus').textContent = aiKey() ? (m ? '✓ Funciona · ' + m.replace('models/', '') : 'Clave guardada (sin probar)') : 'Sin configurar';
   renderActs(); renderPace(); updateGoal(false); renderBackupInfo();
-  renderAdmin();
+  renderAdmin(); $('#verNum').textContent = APP_VERSION; renderAdminNote();
   const mem = lensMem(); $('#lensMemBox').hidden = !mem.count; $('#lensMemTxt').textContent = `Aprendido de ${mem.count} ${mem.count === 1 ? 'plato' : 'platos'}`;
 }
 $('#fbOpen').onclick = openFeedback;
+$('#verTap').onclick = () => { clearTimeout(verTimer); verTimer = setTimeout(() => verTaps = 0, 1500); if (++verTaps >= 5) { verTaps = 0; if (isAdmin()) toast('Ya estás en modo creador'); else openAdminLogin(); } };
 $('#fbSheet').onclick = () => {
   if (FEEDBACK.sheet) return window.open(FEEDBACK.sheet, '_blank', 'noopener');
   openSheet('Opiniones y uso', `<p style="margin:0">Aún no está conectado el formulario de Google. Cuando lo esté, aquí se abrirá la hoja con todas las opiniones y una fila al día por cada persona que abre la app (nombre, versión y tipo de móvil).</p><button class="btn" id="fsOk">Entendido</button>`);
@@ -3060,6 +3064,49 @@ $('#lockForm').addEventListener('submit', async e => {
     if (onUnlock) { const f = onUnlock; onUnlock = null; f(); }
   } finally { $('#lockBtn').disabled = false; $('#lockBtn').textContent = 'Entrar'; }
 });
+/* ---- avisos solo para el creador: opiniones nuevas ---- */
+const isAdmin = () => !!(ls.get('ns.access') || {}).admin;
+let statsChecked = 0;
+async function checkReviews(force = false) {
+  if (!isAdmin() || !FB_STATS || !navigator.onLine || (!force && Date.now() - statsChecked < 10 * 60 * 1000)) return renderAdminNote();
+  statsChecked = Date.now();
+  try {
+    const r = await fetch(FB_STATS + (FB_STATS.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw 0;
+    const kv = {}; (await r.text()).split(/\r?\n/).forEach(l => { const [k, ...v] = l.split(','); if (k) kv[k.trim().toLowerCase()] = v.join(',').replace(/^"|"$/g, '').trim(); });
+    const st = { total: parseInt(kv.opiniones, 10) || 0, last: kv.ultima || '', today: parseInt(kv.hoy, 10) || 0, at: Date.now() };
+    ls.set('ns.fbStats', st);
+    if (ls.get('ns.fbSeen') == null) ls.set('ns.fbSeen', st.total); // la primera vez no avisa de las antiguas
+  } catch {}
+  renderAdminNote();
+}
+function renderAdminNote() {
+  const box = $('#adminNote'), st = ls.get('ns.fbStats'), statsEl = $('#adminStats');
+  if (!isAdmin() || !st) { box.hidden = true; if (statsEl) statsEl.hidden = true; return; }
+  const n = Math.max(0, st.total - (ls.get('ns.fbSeen') || 0));
+  if (statsEl) { statsEl.hidden = false; statsEl.innerHTML = `💬 <b style="color:var(--fg)">${st.total}</b> opiniones en total · 👥 <b style="color:var(--fg)">${st.today}</b> ${st.today === 1 ? 'persona la ha' : 'personas la han'} abierto hoy`; }
+  box.hidden = !n; if (!n) return;
+  box.innerHTML = `<div class="card hint" style="background:var(--accent);color:var(--accent-ink);cursor:default"><span style="font-size:24px" aria-hidden="true">🔔</span><div class="t"><b style="color:inherit">${n === 1 ? 'Tienes 1 opinión nueva' : `Tienes ${n} opiniones nuevas`}</b><span style="color:inherit;opacity:.85">${st.last ? 'La última: ' + esc(st.last) : 'Solo lo ves tú'}</span></div>
+    <button class="btn sm" id="anOpen" style="background:rgba(255,255,255,.25);color:inherit;width:auto;padding:0 14px">Ver</button><button class="x" id="anX" aria-label="Marcar como vistas" style="color:inherit">${ico('i-close')}</button></div>`;
+  const seen = () => { ls.set('ns.fbSeen', st.total); renderAdminNote(); };
+  $('#anOpen').onclick = () => { seen(); window.open(FEEDBACK.sheet, '_blank', 'noopener'); };
+  $('#anX').onclick = seen;
+}
+/* acceso de creador escondido: toca 5 veces la versión en Perfil (por si reinstalas la app) */
+let verTaps = 0, verTimer = 0;
+function openAdminLogin() {
+  openSheet('Acceso de creador', `<p style="margin:0">Escribe tu código de creador para recibir los avisos de opiniones en este móvil.</p>
+    <label class="search"><input id="adCode" type="text" autocapitalize="characters" autocomplete="off" placeholder="Tu código"></label>
+    <button class="btn" id="adGo">Entrar</button><p class="note" id="adSt" style="margin:0;text-align:center" hidden></p>`);
+  $('#adGo').onclick = guard(async () => {
+    const st = $('#adSt'); st.hidden = false; st.textContent = 'Comprobando…';
+    const res = await loadAccessList(); if (!res) return st.textContent = 'Sin conexión. Prueba otra vez.';
+    const h = await codeHash($('#adCode').value), e = res.list.find(x => x.h === h && x.admin);
+    if (!e) return st.textContent = 'Código incorrecto.';
+    ls.set('ns.access', { h, ok: Date.now(), name: cleanName(e.n), admin: true }); closeSheet(); toast('🔑 Modo creador activado'); renderPerfil(); checkReviews(true);
+  });
+}
+
 /* ---- panel de invitaciones (solo administrador) ---- */
 function randomCode(name) {
   const base = (norm(name).split(/\s+/)[0] || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 10) || 'AMIGO';
@@ -3169,7 +3216,7 @@ $('#tourOpen').onclick = () => openTour(0);
    NOVEDADES · se muestran una vez tras cada actualización
    Para cada versión nueva: sube APP_VERSION y añade su entrada al principio de CHANGELOG.
    ===================================================================== */
-const APP_VERSION = '3.14';
+const APP_VERSION = '3.15';
 const CHANGELOG = [
   { v: '3.14', date: '7 nov 2026', items: [
     ['✏️', 'Corrige un alimento con la IA', 'Toca un alimento ya apuntado, escribe qué cambiar («es arroz integral», «lleva más aceite», «son 2 huevos») y la IA recalcula las calorías. Además lo recuerda para tus próximas fotos.']] },
@@ -3334,6 +3381,9 @@ function wizStep(n) {
    de un Formulario de Google y los identificadores entry.XXXX de cada pregunta.
    Si está vacío, la opinión se comparte por WhatsApp/correo con el menú del móvil.
    ===================================================================== */
+/* Resumen público SOLO con números (sin textos ni nombres): pestaña «Resumen» de la hoja publicada como CSV.
+   Filas: opiniones,<total de opiniones> · ultima,<fecha de la última> · hoy,<móviles distintos que la han abierto hoy> */
+const FB_STATS = '';
 const FEEDBACK = { form: 'https://docs.google.com/forms/d/e/1FAIpQLScuipLOtRg5pXMpeKQ1EjmknwEc66QaZm1eFowhvqracqDKWg/viewform',
   sheet: 'https://docs.google.com/spreadsheets/d/1nM7nBlvZTIG3nmoY8we6OH8xshNlRA0AdJie14bgRjU/edit',
   fields: { stars: 'entry.811758407', type: 'entry.1072223085', text: 'entry.236992616', name: 'entry.638510236' } };
@@ -3456,7 +3506,7 @@ async function startApp() {
   else if (ls.get('ns.seenVersion') !== APP_VERSION) setTimeout(() => showWhatsNew(), 500);
   else if (Date.now() - (+ls.get('ns.aiSetupPending', 0) || 0) < 30 * 60 * 1000 && !aiKey()) setTimeout(() => openAISetup('tour'), 500); // volvió de AI Studio y el iPhone recargó la app
   if (!isNew && !ls.get('ns.tourDone') && ls.get('ns.seenVersion')) ls.set('ns.tourDone', true); // usuarios de antes: guía en Perfil y pistas sí
-  sendQueuedFeedback(); window.addEventListener('online', sendQueuedFeedback); pingUsage();
+  sendQueuedFeedback(); window.addEventListener('online', sendQueuedFeedback); pingUsage(); checkReviews(true);
 }
 const isStandalone = () => navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
 const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -3485,6 +3535,7 @@ document.addEventListener('visibilitychange', async () => {
   if (document.hidden || !$('#lock').hidden || Date.now() - accessChecked < ACCESS_RECHECK) return;
   if (!(await checkAccess())) onUnlock = () => go(view);
 });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkReviews(); });
 </script>
 </body>
 </html>
